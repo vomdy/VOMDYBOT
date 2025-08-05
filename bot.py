@@ -63,7 +63,7 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"၂။ ဖုန်းနံပါတ်ကို ဖျောက်ထားရန်။\n"
                 f"၃။ မိမိ၏တည်နေရာကို public chat သိုမဟုတ် DM တွင် မဖော်ပြရန်။"
                 f"၄။ DMတွင်ဖြစ်စေ၊Groupထဲတွင်ဖြစ်စေ မိမိမသိသော Link များကို မနှိပ်မိရန်သတိထားပါ။"
-                f"၄။ သတင်းပေးပိုလိုပါက admin များထံသို DM မှတစ်ဆင့် ဆက်သွယ်သတင်းပေးရန်။\n\n"
+                f"၅။ သတင်းပေးပိုလိုပါက admin များထံသို DM မှတစ်ဆင့် ဆက်သွယ်သတင်းပေးရန်။\n\n"
                 f"မိဘပြည်သူများအနေဖြင့် -\n"
                 f"• စကစ၏ ယုတ်မာရက်စက်မှုများ\n"
                 f"• ဧည့်စားရင်းစစ်သတင်းများ\n"
@@ -90,17 +90,21 @@ async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if any(re.search(pattern, text) for pattern in blocked_patterns):
         try:
+            # Delete original message
             await update.message.delete()
 
+            # Update warning count
             if user_id not in user_warnings:
                 user_warnings[user_id] = 0
             user_warnings[user_id] += 1
 
+            # Build warning message
             if user_warnings[user_id] == 1:
-                warning_msg = f"⚠️ {username}, Admin ခွင့်ပြုချက်မရှိပဲ Link ပေးပို့ရန်တားမြစ်ထားသည်။ Warns now: (1/3) ❕"
+                warning_msg = f"⚠️ {username}, Admin ခွင့်ပြုချက်မရှိပဲ Link ပေးပို့ရန်တားမြစ်ထားသည်။ Warn: (1/3)"
             elif user_warnings[user_id] == 2:
                 warning_msg = f"⚠️ {username}, နောက်တစ်ကြိမ် Link ပို့မယ်ဆို mute လုပ်ပါမယ်! (2/3)"
             else:
+                # Mute user for 48 hours
                 await context.bot.restrict_chat_member(
                     chat_id=update.effective_chat.id,
                     user_id=user_id,
@@ -109,7 +113,11 @@ async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 warning_msg = f"🚫 {username} ကို 48 နာရီ mute လုပ်လိုက်ပါပြီ! (3/3)"
 
-            sent_msg = await update.message.reply_text(warning_msg)
+            # ✅ Send warning message & auto delete after 10 sec
+            sent_msg = await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=warning_msg
+            )
             await asyncio.sleep(10)
             await sent_msg.delete()
 
