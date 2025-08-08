@@ -79,54 +79,53 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Welcome error: {e}")
 
 # ✅ Link Filter with 3-strike rule (updated)
-async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def filter_links(update, context):
     if not update.message or not update.message.text:
         return
 
     user_id = update.message.from_user.id
     username = update.message.from_user.full_name
-    text = update.message.text.strip().lower()
+    text = update.message.text.lower()
 
-    # ✅ Updated blocked patterns
-    blocked_patterns = [
-        r'http[s]?://',       # http:// or https://
-        r'www\.',             # www.
-        r'\.[a-z]{2,6}\b',    # .com .net .org .info .mm etc.
-        r't\.me/',            # Telegram links
-        r'@[a-z0-9_]{5,}'     # Telegram usernames
-    ]
+    # ✅ Improved pattern: detects .com, .net, .org, .top, .xyz, etc. even with spaces or hyphens
+    link_pattern = r'(https?:\/\/|www\.|t\.me\/|@[a-z0-9_]{5,}|[a-z0-9\-]+\s*\.\s*[a-z]{2,10})'
 
-    if any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in blocked_patterns):
+    if re.search(link_pattern, text, flags=re.IGNORECASE):
         try:
+            # Delete message immediately
             await update.message.delete()
-            logger.info(f"Link detected from {username} ({user_id})")  # Debug log
 
-            # Count warnings
+            # Warn count
             user_warnings[user_id] = user_warnings.get(user_id, 0) + 1
 
+            # Apply punishments
             if user_warnings[user_id] == 1:
-                warning_msg = f"⚠️ {username}, Admin ခွင့်ပြုချက်မရှိပဲ Link ပေးပို့ရန်တားမြစ်ထားသည်။ Warn: (1/3)"
+                until = update.message.date + timedelta(minutes=5)
+                mute_time = "5 မိနစ်"
             elif user_warnings[user_id] == 2:
-                warning_msg = f"⚠️ {username}, Admin ခွင့်ပြုချက်မရှိပဲ Link ပေးပို့ရန်တားမြစ်ထားသည်။ Warn: (2/3)"
+                until = update.message.date + timedelta(hours=1)
+                mute_time = "1 နာရီ"
             else:
-                await context.bot.restrict_chat_member(
-                    chat_id=update.effective_chat.id,
-                    user_id=user_id,
-                    permissions=ChatPermissions(can_send_messages=False),
-                    until_date=update.message.date + timedelta(hours=48)
-                )
-                warning_msg = f"🚫 {username} ကို 48 နာရီ mute လုပ်လိုက်ပါပြီ! (3/3)"
+                until = update.message.date + timedelta(hours=48)
+                mute_time = "48 နာရီ"
 
-            sent_msg = await context.bot.send_message(
+            await context.bot.restrict_chat_member(
                 chat_id=update.effective_chat.id,
-                text=warning_msg
+                user_id=user_id,
+                permissions=ChatPermissions(can_send_messages=False),
+                until_date=until
             )
 
+            warn_msg = f"🚫 {username} ကို link ပို့လို့ {mute_time} mute လုပ်လိုက်ပါပြီ! ({user_warnings[user_id]}/3)"
+            sent_msg = await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=warn_msg
+            )
             await asyncio.sleep(10)
             await sent_msg.delete()
 
         except Exception as e:
-            logger.error(f"Error in filter_links: {e}")
+            print(f"Error deleting link: {e}")
 
 
 # ✅ Group Rules Command
