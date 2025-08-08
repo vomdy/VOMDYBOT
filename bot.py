@@ -17,6 +17,9 @@ from datetime import timedelta
 # Load environment variables
 load_dotenv()
 
+# 🔴 သင့်ရဲ့ User ID ကိုဒီမှာထည့်ပါ
+OWNER_ID = 123456789  # @userinfobot ကနေရယူပါ
+
 # Logging setup
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -27,16 +30,13 @@ logger = logging.getLogger(__name__)
 # Warning Counter Store
 user_warnings = {}
 
-# Helper functions
-async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    user = update.effective_user
-    chat = update.effective_chat
-    admins = await context.bot.get_chat_administrators(chat.id)
-    return any(admin.user.id == user.id for admin in admins)
+# ... (ကျန်တဲ့ code တွေကိုမထိပါနဲ့) ...
 
-# ✅ /start Command
+# ✅ /start Command (ပြင်ဆင်ပြီး)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ Hello! I'm your group help bot.")
+    if update.message.from_user.id != OWNER_ID:
+        return  # ပိုင်ရှင်မဟုတ်ရင် ဘာမှမလုပ်ဘူး
+    await update.message.reply_text("✅ Hello Owner! I'm your private bot.")
 
 # ✅ Welcome Message for New Members
 async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -78,33 +78,37 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Welcome error: {e}")
 
-# ✅ Link Filter with 3-strike rule
+# ✅ Link Filter with 3-strike rule (updated)
 async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
 
     user_id = update.message.from_user.id
     username = update.message.from_user.full_name
-    text = update.message.text.lower()
-    blocked_patterns = [r'http[s]?://', r'www\.', r'\.com', r't\.me/', r'@\w+']
+    text = update.message.text.strip().lower()
 
-    if any(re.search(pattern, text) for pattern in blocked_patterns):
+    # ✅ Updated blocked patterns
+    blocked_patterns = [
+        r'http[s]?://',       # http:// or https://
+        r'www\.',             # www.
+        r'\.[a-z]{2,6}\b',    # .com .net .org .info .mm etc.
+        r't\.me/',            # Telegram links
+        r'@[a-z0-9_]{5,}'     # Telegram usernames
+    ]
+
+    if any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in blocked_patterns):
         try:
-            # Delete original message
             await update.message.delete()
+            logger.info(f"Link detected from {username} ({user_id})")  # Debug log
 
-            # Update warning count
-            if user_id not in user_warnings:
-                user_warnings[user_id] = 0
-            user_warnings[user_id] += 1
+            # Count warnings
+            user_warnings[user_id] = user_warnings.get(user_id, 0) + 1
 
-            # Build warning message
             if user_warnings[user_id] == 1:
                 warning_msg = f"⚠️ {username}, Admin ခွင့်ပြုချက်မရှိပဲ Link ပေးပို့ရန်တားမြစ်ထားသည်။ Warn: (1/3)"
             elif user_warnings[user_id] == 2:
-                warning_msg = f"⚠️ {username}, နောက်တစ်ကြိမ် Link ပို့မယ်ဆို mute လုပ်ပါမယ်! (2/3)"
+                warning_msg = f"⚠️ {username}, Admin ခွင့်ပြုချက်မရှိပဲ Link ပေးပို့ရန်တားမြစ်ထားသည်။ Warn: (2/3)"
             else:
-                # Mute user for 48 hours
                 await context.bot.restrict_chat_member(
                     chat_id=update.effective_chat.id,
                     user_id=user_id,
@@ -113,16 +117,17 @@ async def filter_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 warning_msg = f"🚫 {username} ကို 48 နာရီ mute လုပ်လိုက်ပါပြီ! (3/3)"
 
-            # ✅ Send warning message & auto delete after 10 sec
             sent_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=warning_msg
             )
+
             await asyncio.sleep(10)
             await sent_msg.delete()
 
         except Exception as e:
             logger.error(f"Error in filter_links: {e}")
+
 
 # ✅ Group Rules Command
 async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
