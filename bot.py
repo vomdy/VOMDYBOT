@@ -18,7 +18,7 @@ from datetime import timedelta
 load_dotenv()
 
 # 🔴 သင့်ရဲ့ User ID ကိုဒီမှာထည့်ပါ
-OWNER_ID = 123456789  # @userinfobot ကနေရယူပါ
+OWNER_ID = 17827970345 # @userinfobot ကနေရယူပါ
 
 # Logging setup
 logging.basicConfig(
@@ -86,6 +86,8 @@ async def filter_links(update, context):
     user_id = update.message.from_user.id
     username = update.message.from_user.full_name
     text = update.message.text.lower()
+    if user_id == 7827970345：
+     return
 
     # ✅ Improved pattern: detects .com, .net, .org, .top, .xyz, etc. even with spaces or hyphens
     link_pattern = r'(https?:\/\/|www\.|t\.me\/|@[a-z0-9_]{5,}|[a-z0-9\-]+\s*\.\s*[a-z]{2,10})'
@@ -140,7 +142,34 @@ async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(rules_text, parse_mode=ParseMode.HTML)
 
 # ✅ Admin List Command
+import asyncio
+from datetime import datetime, timedelta
+
+# Dictionary to store the last usage time for each user
+last_used = {}
+
+# Admin list command with cooldown
 async def admin_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    cooldown_time = timedelta(hours=1)  # 1 hour cooldown
+
+    # Get current time
+    current_time = datetime.now()
+
+    # Check if user already used the command recently
+    if user_id in last_used:
+        time_difference = current_time - last_used[user_id]
+        if time_difference < cooldown_time:
+            # If the user has used the command within the last hour
+            remaining_time = cooldown_time - time_difference
+            await update.message.reply_text(
+                f"⏳ နောက်တစ်ကြိမ်အသုံးပြုရန် {remaining_time.seconds // 60} မိနစ် {remaining_time.seconds % 60} စက္ကန့် ကြာမည်။"
+            )
+            return
+    
+    # Update the last used time
+    last_used[user_id] = current_time
+
     predefined_admins = ["@Oakgyi1116", "@bebeex124", "@GuGuLay1234"]
     message = (
         "🔷 <b>Admin များ:</b>\n\n" +
@@ -148,6 +177,7 @@ async def admin_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "\n\nသတင်းပေးရန် ဖော်ပြထားသော admin DM ထံသို့ ဆက်သွယ်ပါ။"
     )
     await update.message.reply_text(message, parse_mode=ParseMode.HTML)
+
 
 # ✅ Ban user by username or ID
 async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
