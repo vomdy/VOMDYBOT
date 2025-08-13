@@ -86,8 +86,10 @@ async def filter_links(update, context):
     user_id = update.message.from_user.id
     username = update.message.from_user.full_name
     text = update.message.text.lower()
-    if user_id == 7827970345：
-     return
+
+    # Correct colon syntax
+    if user_id == 7827970345:  
+        return
 
     # ✅ Improved pattern: detects .com, .net, .org, .top, .xyz, etc. even with spaces or hyphens
     link_pattern = r'(https?:\/\/|www\.|t\.me\/|@[a-z0-9_]{5,}|[a-z0-9\-]+\s*\.\s*[a-z]{2,10})'
